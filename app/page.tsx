@@ -12,7 +12,7 @@ export default function Home() {
 
       {/* Continutul Principal */}
       <div className="relative z-10 text-center space-y-8">
-        <h1 className="text-9xl font-black tracking-tighter bg-gradient-to-b from-white to-slate-500 bg-clip-text text-transparent">
+        <h1 className="text-7xl md:text-9xl font-black tracking-tighter bg-gradient-to-b from-white to-slate-500 bg-clip-text text-transparent">
           STAX
         </h1>
         
