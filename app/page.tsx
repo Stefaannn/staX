@@ -26,7 +26,7 @@ export default function Home() {
       });
 
       if (error) {
-        alert("Eroare la logare: Date incorecte. Verifică emailul și parola!"); 
+        alert("Eroare la logare: " + error.message);
       } else {
         router.push('/dashboard'); 
       }
