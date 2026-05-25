@@ -31,6 +31,7 @@ export default function Dashboard() {
 
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState('');
+  const [username, setUsername] = useState('');
   const [discordTag, setDiscordTag] = useState('');
   const [games, setGames] = useState<GameEntry[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -65,8 +66,12 @@ export default function Dashboard() {
       setUserId(session.user.id);
 
       const { data: profile } = await supabase
-        .from('profiles').select('discord_tag, games').eq('id', session.user.id).single();
-      if (profile) { setDiscordTag(profile.discord_tag ?? ''); setGames(profile.games ?? []); }
+        .from('profiles').select('username, discord_tag, games').eq('id', session.user.id).single();
+      if (profile) {
+        setUsername(profile.username ?? '');
+        setDiscordTag(profile.discord_tag ?? '');
+        setGames(profile.games ?? []);
+      }
 
       setLoading(false);
       await fetchAll(session.user.id);
@@ -180,16 +185,21 @@ export default function Dashboard() {
                 onClick={() => setProfileOpen(o => !o)}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition-all text-sm font-medium"
               >
-                <span className="text-slate-300">My Profile</span>
+                <span className="text-slate-300 font-semibold">{username ? `@${username}` : 'My Profile'}</span>
                 {discordTag && <span className="text-[#5865F2] text-xs hidden sm:inline">{discordTag}</span>}
                 <span className={`text-slate-500 text-xs transition-transform duration-200 ${profileOpen ? 'rotate-180' : ''}`}>▼</span>
               </button>
 
               {profileOpen && (
                 <div className="absolute right-0 top-full mt-2 w-72 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-4 space-y-3">
+                  {username && (
+                    <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                      <span className="text-slate-500">@</span><span>{username}</span>
+                    </div>
+                  )}
                   {discordTag && (
-                    <div className="flex items-center gap-2 text-sm text-slate-300">
-                      <span className="text-[#5865F2]">⬡</span><span>{discordTag}</span>
+                    <div className="flex items-center gap-2 text-sm text-slate-400">
+                      <span className="text-[#5865F2]">●</span><span>{discordTag}</span>
                     </div>
                   )}
                   {games.length > 0 ? (

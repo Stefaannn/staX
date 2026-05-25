@@ -60,8 +60,8 @@ export default function HubPage() {
 
   const resolveTag = async (uid: string): Promise<string> => {
     if (profileCacheRef.current[uid]) return profileCacheRef.current[uid];
-    const { data } = await supabase.from('profiles').select('discord_tag').eq('id', uid).single();
-    const tag = data?.discord_tag ?? uid.slice(0, 8);
+    const { data } = await supabase.from('profiles').select('username, discord_tag').eq('id', uid).single();
+    const tag = data?.username || data?.discord_tag || uid.slice(0, 8);
     profileCacheRef.current[uid] = tag;
     return tag;
   };
@@ -105,8 +105,8 @@ export default function HubPage() {
       ])];
 
       if (allUids.length > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('id, discord_tag').in('id', allUids);
-        profiles?.forEach(p => { profileCacheRef.current[p.id] = p.discord_tag ?? p.id.slice(0, 8); });
+        const { data: profiles } = await supabase.from('profiles').select('id, username, discord_tag').in('id', allUids);
+        profiles?.forEach(p => { profileCacheRef.current[p.id] = p.username || p.discord_tag || p.id.slice(0, 8); });
       }
 
       setMembers(membersData?.map(m => ({ ...m, discord_tag: profileCacheRef.current[m.user_id] })) ?? []);
@@ -119,8 +119,8 @@ export default function HubPage() {
 
         const reqUids = reqData?.map(r => r.user_id) ?? [];
         if (reqUids.length > 0) {
-          const { data: reqProfiles } = await supabase.from('profiles').select('id, discord_tag').in('id', reqUids);
-          reqProfiles?.forEach(p => { profileCacheRef.current[p.id] = p.discord_tag ?? p.id.slice(0, 8); });
+          const { data: reqProfiles } = await supabase.from('profiles').select('id, username, discord_tag').in('id', reqUids);
+          reqProfiles?.forEach(p => { profileCacheRef.current[p.id] = p.username || p.discord_tag || p.id.slice(0, 8); });
         }
         setRequests(reqData?.map(r => ({ ...r, discord_tag: profileCacheRef.current[r.user_id] })) ?? []);
       }
@@ -168,6 +168,11 @@ export default function HubPage() {
   const handleReject = async (reqId: string) => {
     await supabase.from('hub_requests').update({ status: 'rejected' }).eq('id', reqId);
     setRequests(prev => prev.filter(r => r.id !== reqId));
+  };
+
+  const handleKick = async (memberId: string) => {
+    await supabase.from('hub_members').delete().eq('hub_id', hubId).eq('user_id', memberId);
+    setMembers(prev => prev.filter(m => m.user_id !== memberId));
   };
 
   const handleLeave = async () => {
@@ -268,12 +273,23 @@ export default function HubPage() {
             </p>
             <ul className="space-y-1">
               {members.map(m => (
-                <li key={m.user_id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-800/60 transition-colors">
-                  <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
-                  <span className="text-sm text-slate-300 truncate">
-                    {m.discord_tag ?? m.user_id.slice(0, 8)}
-                    {m.user_id === hub.creator_id && <span className="text-yellow-500 ml-1 text-xs">★</span>}
-                  </span>
+                <li key={m.user_id} className="flex items-center justify-between gap-1 px-2 py-1.5 rounded-lg hover:bg-slate-800/60 transition-colors group">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                    <span className="text-sm text-slate-300 truncate">
+                      {m.discord_tag ?? m.user_id.slice(0, 8)}
+                      {m.user_id === hub.creator_id && <span className="text-yellow-500 ml-1 text-xs">★</span>}
+                    </span>
+                  </div>
+                  {isCreator && m.user_id !== userId && (
+                    <button
+                      onClick={() => handleKick(m.user_id)}
+                      title="Scoate din hub"
+                      className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all text-base leading-none shrink-0"
+                    >
+                      ×
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
