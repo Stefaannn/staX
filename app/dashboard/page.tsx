@@ -42,6 +42,7 @@ export default function Dashboard() {
   const [pendingRequests, setPendingRequests] = useState<Set<string>>(new Set());
   const [hubsLoading, setHubsLoading] = useState(true);
   const [joining, setJoining] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // Filters
   const [filterGame, setFilterGame] = useState('');
@@ -348,9 +349,27 @@ export default function Dashboard() {
                       </button>
                     )}
                     {isCreator && (
-                      <button onClick={() => handleDeleteHub(hub.id)} className="px-3 py-2 text-xs text-red-500/50 hover:text-red-400 transition-colors">
-                        Șterge
-                      </button>
+                      confirmDelete === hub.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-slate-400">Sigur?</span>
+                          <button
+                            onClick={() => { handleDeleteHub(hub.id); setConfirmDelete(null); }}
+                            className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-all"
+                          >
+                            Da
+                          </button>
+                          <button
+                            onClick={() => setConfirmDelete(null)}
+                            className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-all"
+                          >
+                            Nu
+                          </button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setConfirmDelete(hub.id)} className="px-3 py-2 text-xs text-red-500/50 hover:text-red-400 transition-colors">
+                          Șterge
+                        </button>
+                      )
                     )}
                   </div>
                 </div>
