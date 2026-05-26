@@ -48,6 +48,7 @@ export default function Dashboard() {
   const [filterGame, setFilterGame] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | '4fun' | 'ranked'>('all');
   const [hideFull, setHideFull] = useState(false);
+  const [sortBy, setSortBy] = useState<'newest' | 'popular'>('newest');
 
   // Create hub modal
   const [showCreate, setShowCreate] = useState(false);
@@ -161,12 +162,17 @@ export default function Dashboard() {
   const availableGames = [...new Set(hubs.map(h => h.game))].sort();
   const filteredSuggestions = POPULAR_GAMES.filter(g => g.toLowerCase().includes(hubGame.toLowerCase()));
 
-  const filteredHubs = hubs.filter(hub => {
-    if (filterGame && hub.game !== filterGame) return false;
-    if (filterMode !== 'all' && hub.mode !== filterMode) return false;
-    if (hideFull && (memberCounts[hub.id] ?? 0) >= hub.max_members) return false;
-    return true;
-  });
+  const filteredHubs = hubs
+    .filter(hub => {
+      if (filterGame && hub.game !== filterGame) return false;
+      if (filterMode !== 'all' && hub.mode !== filterMode) return false;
+      if (hideFull && (memberCounts[hub.id] ?? 0) >= hub.max_members) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'popular') return (memberCounts[b.id] ?? 0) - (memberCounts[a.id] ?? 0);
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   if (loading) {
     return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Se încarcă...</div>;
@@ -279,6 +285,18 @@ export default function Dashboard() {
           >
             {hideFull ? '✓ Ascund pline' : 'Ascunde pline'}
           </button>
+
+          <div className="flex rounded-lg overflow-hidden border border-slate-700 ml-auto">
+            {(['newest', 'popular'] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => setSortBy(s)}
+                className={`px-3 py-1.5 text-xs font-semibold transition-all ${sortBy === s ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+              >
+                {s === 'newest' ? '🕐 Cele mai noi' : '🔥 Cele mai populare'}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Hub grid */}
