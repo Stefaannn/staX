@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // Filters
+  const [searchName, setSearchName] = useState('');
   const [filterGame, setFilterGame] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | '4fun' | 'ranked'>('all');
   const [hideFull, setHideFull] = useState(false);
@@ -164,6 +165,7 @@ export default function Dashboard() {
 
   const filteredHubs = hubs
     .filter(hub => {
+      if (searchName && !hub.name.toLowerCase().includes(searchName.toLowerCase())) return false;
       if (filterGame && hub.game !== filterGame) return false;
       if (filterMode !== 'all' && hub.mode !== filterMode) return false;
       if (hideFull && (memberCounts[hub.id] ?? 0) >= hub.max_members) return false;
@@ -257,6 +259,14 @@ export default function Dashboard() {
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3 bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3">
           <span className="text-slate-400 text-sm font-medium shrink-0">Filtre:</span>
+
+          <input
+            type="text"
+            value={searchName}
+            onChange={e => setSearchName(e.target.value)}
+            placeholder="Caută după nume..."
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all w-48"
+          />
 
           <select
             value={filterGame}
