@@ -13,6 +13,12 @@ export default function Home() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault(); 
@@ -26,9 +32,9 @@ export default function Home() {
       });
 
       if (error) {
-        alert("Eroare la logare: " + error.message);
+        showToast("Eroare la logare: " + error.message, 'error');
       } else {
-        router.push('/dashboard'); 
+        router.push('/dashboard');
       }
 
     } else {
@@ -39,11 +45,11 @@ export default function Home() {
       });
 
       if (error) {
-        alert("Eroare la creare: " + error.message);
+        showToast("Eroare la creare: " + error.message, 'error');
       } else {
-        alert("Cont creat cu succes! Acum te poți loga.");
-        setIsLoginMode(true); // Îl trecem automat înapoi pe modul de logare
-        setPassword(''); // Îi ștergem parola din căsuță pentru siguranță
+        showToast("Cont creat cu succes! Acum te poți loga.", 'success');
+        setIsLoginMode(true);
+        setPassword('');
       }
     }
     
@@ -52,6 +58,17 @@ export default function Home() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-slate-950 text-white relative">
+
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-[100] flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl border text-sm font-medium transition-all animate-in fade-in slide-in-from-bottom-4 ${
+          toast.type === 'success'
+            ? 'bg-green-950 border-green-700 text-green-300'
+            : 'bg-red-950 border-red-700 text-red-300'
+        }`}>
+          <span>{toast.type === 'success' ? '✓' : '✕'}</span>
+          <span>{toast.message}</span>
+        </div>
+      )}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-purple-900/20 blur-[120px] rounded-full"></div>
         <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-blue-900/20 blur-[120px] rounded-full"></div>
