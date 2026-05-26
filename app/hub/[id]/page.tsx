@@ -53,6 +53,7 @@ export default function HubPage() {
 
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [confirmPromote, setConfirmPromote] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -180,6 +181,18 @@ export default function HubPage() {
     router.push('/dashboard');
   };
 
+  const handlePromote = async (member: Member) => {
+    const newOwnerTag = member.discord_tag ?? member.user_id.slice(0, 8);
+    await supabase.from('hubs').update({ creator_id: member.user_id }).eq('id', hubId);
+    await supabase.from('hub_messages').insert({
+      hub_id: hubId,
+      user_id: userId,
+      content: `⚙️ ${newOwnerTag} a fost promovat la Hub Owner!`,
+    });
+    setHub(prev => prev ? { ...prev, creator_id: member.user_id } : prev);
+    setConfirmPromote(null);
+  };
+
   if (loading) {
     return <div className="h-screen bg-slate-950 flex items-center justify-center text-white">Se încarcă hub-ul...</div>;
   }
@@ -282,13 +295,39 @@ export default function HubPage() {
                     </span>
                   </div>
                   {isCreator && m.user_id !== userId && (
-                    <button
-                      onClick={() => handleKick(m.user_id)}
-                      title="Scoate din hub"
-                      className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all text-base leading-none shrink-0"
-                    >
-                      ×
-                    </button>
+                    confirmPromote === m.user_id ? (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => handlePromote(m)}
+                          className="text-xs px-1.5 py-0.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded font-semibold transition-all"
+                        >
+                          Da
+                        </button>
+                        <button
+                          onClick={() => setConfirmPromote(null)}
+                          className="text-xs px-1.5 py-0.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded transition-all"
+                        >
+                          Nu
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all shrink-0">
+                        <button
+                          onClick={() => setConfirmPromote(m.user_id)}
+                          title="Promovează la Owner"
+                          className="text-slate-600 hover:text-yellow-400 transition-colors text-sm leading-none"
+                        >
+                          ★
+                        </button>
+                        <button
+                          onClick={() => handleKick(m.user_id)}
+                          title="Scoate din hub"
+                          className="text-slate-600 hover:text-red-400 transition-colors text-base leading-none"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )
                   )}
                 </li>
               ))}
@@ -305,6 +344,13 @@ export default function HubPage() {
               </div>
             )}
             {messages.map((msg, i) => {
+              if (msg.content.startsWith('⚙️')) {
+                return (
+                  <div key={msg.id} className="flex justify-center py-2">
+                    <span className="text-xs text-slate-500 bg-slate-800/60 px-3 py-1 rounded-full">{msg.content}</span>
+                  </div>
+                );
+              }
               const isOwn = msg.user_id === userId;
               const showHeader = i === 0 || messages[i - 1].user_id !== msg.user_id;
               return (
