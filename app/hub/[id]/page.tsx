@@ -10,7 +10,7 @@ export default function HubPage() {
   const { id: hubId } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
   const {
-    loading, hub, isMember, messages, members, requests, sending, onCooldown,
+    loading, hub, isMember, messages, members, requests, sending, cooldown,
     sendMessage, acceptRequest, rejectRequest, kickMember, leaveHub, promoteToOwner,
   } = useHub(hubId, user?.userId ?? '');
 
@@ -235,10 +235,10 @@ export default function HubPage() {
               />
               <button
                 type="submit"
-                disabled={!newMessage.trim() || sending || onCooldown}
+                disabled={!newMessage.trim() || sending || cooldown > 0}
                 className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all text-sm shrink-0"
               >
-                {onCooldown ? '⏳ 3s' : 'Trimite'}
+                {cooldown > 0 ? `⏳ ${cooldown}s` : 'Trimite'}
               </button>
             </div>
             <div className="flex justify-end">

@@ -45,7 +45,7 @@ export function useHub(hubId: string, userId: string) {
   const [members, setMembers] = useState<Member[]>([]);
   const [requests, setRequests] = useState<HubRequest[]>([]);
   const [sending, setSending] = useState(false);
-  const [onCooldown, setOnCooldown] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const profileCacheRef = useRef<Record<string, string>>({});
@@ -128,12 +128,17 @@ export function useHub(hubId: string, userId: string) {
   }, [hubId, userId, router, resolveTag]);
 
   const sendMessage = async (content: string) => {
-    if (!content.trim() || sending || onCooldown) return;
+    if (!content.trim() || sending || cooldown > 0) return;
     setSending(true);
     await supabase.from('hub_messages').insert({ hub_id: hubId, user_id: userId, content: content.trim() });
     setSending(false);
-    setOnCooldown(true);
-    setTimeout(() => setOnCooldown(false), 3000);
+    setCooldown(3);
+    const interval = setInterval(() => {
+      setCooldown(prev => {
+        if (prev <= 1) { clearInterval(interval); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
   const acceptRequest = async (req: HubRequest) => {
@@ -176,7 +181,7 @@ export function useHub(hubId: string, userId: string) {
   };
 
   return {
-    loading, hub, isMember, messages, members, requests, sending, onCooldown,
+    loading, hub, isMember, messages, members, requests, sending, cooldown,
     sendMessage, acceptRequest, rejectRequest, kickMember, leaveHub, promoteToOwner,
   };
 }
