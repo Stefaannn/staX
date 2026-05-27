@@ -68,6 +68,42 @@ npm run build
 
 Acestea rulează automat în GitHub Actions la fiecare push sau pull request.
 
+## Teste de performanță (k6)
+
+Proiectul include un script de load testing care simulează 20 de utilizatori simultani.
+
+### Instalare k6
+
+```powershell
+winget install k6 --source winget
+```
+
+### Rulare (pagini publice)
+
+Asigură-te că aplicația rulează local (`npm run dev`), apoi într-un terminal separat:
+
+```powershell
+k6 run tests/load-test.js
+```
+
+### Rulare cu API Supabase (autentificat)
+
+```powershell
+k6 run tests/load-test.js `
+  -e SUPABASE_URL=https://xxxx.supabase.co `
+  -e SUPABASE_ANON_KEY=your-anon-key `
+  -e TEST_EMAIL=test@email.com `
+  -e TEST_PASSWORD=parola
+```
+
+### Praguri acceptate
+
+| Metric | Prag |
+|---|---|
+| Response time p(95) | < 800ms |
+| Error rate | < 5% |
+| Hub load time p(95) | < 1000ms |
+
 ## Contribuții
 
 1. Fork la repo
