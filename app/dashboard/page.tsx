@@ -28,6 +28,7 @@ export default function Dashboard() {
   const [filterGame, setFilterGame] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | '4fun' | 'ranked'>('all');
   const [hideFull, setHideFull] = useState(false);
+  const [showOnlyMine, setShowOnlyMine] = useState(false);
   const [sortBy, setSortBy] = useState<'newest' | 'popular'>('newest');
 
   // Create hub modal
@@ -90,6 +91,7 @@ export default function Dashboard() {
       if (filterGame && hub.game !== filterGame) return false;
       if (filterMode !== 'all' && hub.mode !== filterMode) return false;
       if (hideFull && (memberCounts[hub.id] ?? 0) >= hub.max_members) return false;
+      if (showOnlyMine && !memberships.has(hub.id) && hub.creator_id !== user?.userId) return false;
       return true;
     })
     .sort((a, b) => {
@@ -223,6 +225,13 @@ export default function Dashboard() {
             className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${hideFull ? 'bg-purple-600 text-white border-purple-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'}`}
           >
             {hideFull ? '✓ Ascund pline' : 'Ascunde pline'}
+          </button>
+
+          <button
+            onClick={() => setShowOnlyMine(v => !v)}
+            className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${showOnlyMine ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'}`}
+          >
+            {showOnlyMine ? '✓ Hub-urile mele' : 'Hub-urile mele'}
           </button>
 
           <div className="flex rounded-lg overflow-hidden border border-slate-700 ml-auto">
