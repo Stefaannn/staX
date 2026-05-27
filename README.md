@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# STAX — Gaming Hub Platform
 
-## Getting Started
+O platformă unde jucătorii pot crea și se pot alătura hub-uri de gaming, pot comunica prin chat în timp real și găsi alți jucători cu interese similare.
 
-First, run the development server:
+## Ce face proiectul
+
+- **Hub-uri de gaming** — creezi sau te alături unui grup de jucători pentru un joc specific, în mod Ranked sau 4Fun
+- **Chat în timp real** — mesaje sincronizate instant între toți membrii unui hub via Supabase Realtime
+- **Sistem de cereri** — hub-urile pot fi libere (Free Join) sau cu aprobare (owner acceptă/respinge cereri)
+- **Management hub** — owner-ul poate kick membri, promova un nou owner sau șterge hub-ul
+- **Profil jucător** — username, Discord tag și lista de jocuri preferate
+- **Filtrare și sortare** — caută hub-uri după nume, joc, mod de joc; sortare după cele mai noi sau cele mai populare
+
+## Stack
+
+- **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS 4
+- **Backend**: Supabase (PostgreSQL, Auth, Realtime)
+- **CI/CD**: GitHub Actions → Vercel
+
+## Instalare
+
+### Cerințe
+- Node.js 20+
+- Un proiect Supabase creat pe [supabase.com](https://supabase.com)
+
+### Pași
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# 1. Clonează repo-ul
+git clone https://github.com/Stefaannn/staX.git
+cd staX/Stax
+
+# 2. Instalează dependențele
+npm install
+
+# 3. Configurează variabilele de mediu
+cp .env.local.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Editează `.env.local` cu datele din proiectul tău Supabase:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# 4. Pornește serverul de development
+npm run dev
+```
 
-## Learn More
+Deschide [http://localhost:3000](http://localhost:3000).
 
-To learn more about Next.js, take a look at the following resources:
+## Rulare teste
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Proiectul nu are încă teste automatizate. Verificarea calității codului se face prin:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+# Lint
+npm run lint
 
-## Deploy on Vercel
+# Type check
+npx tsc --noEmit
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Build (verifică că totul compilează)
+npm run build
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Acestea rulează automat în GitHub Actions la fiecare push sau pull request.
+
+## Contribuții
+
+1. Fork la repo
+2. Creează un branch nou: `git checkout -b feature/nume-feature`
+3. Fă modificările și asigură-te că trec verificările:
+   ```bash
+   npm run lint
+   npx tsc --noEmit
+   npm run build
+   ```
+4. Commit și push: `git push origin feature/nume-feature`
+5. Deschide un Pull Request spre `main`
+
+Pull request-urile sunt verificate automat de CI înainte de merge.
