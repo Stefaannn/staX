@@ -2,149 +2,26 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { supabase } from '../../../lib/supabase';
-
-interface Hub {
-  id: string;
-  name: string;
-  game: string;
-  mode: '4fun' | 'ranked';
-  description: string | null;
-  creator_id: string;
-  join_type: 'free' | 'request';
-  max_members: number;
-}
-
-interface Message {
-  id: string;
-  hub_id: string;
-  user_id: string;
-  content: string;
-  created_at: string;
-  discord_tag?: string;
-}
-
-interface Member {
-  user_id: string;
-  joined_at: string;
-  discord_tag?: string;
-}
-
-interface HubRequest {
-  id: string;
-  user_id: string;
-  status: string;
-  created_at: string;
-  discord_tag?: string;
-}
+import { useAuth } from '../../../context/AuthContext';
+import { useHub } from '../../../hooks/useHub';
 
 export default function HubPage() {
   const router = useRouter();
   const { id: hubId } = useParams<{ id: string }>();
-
-  const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState('');
-  const [hub, setHub] = useState<Hub | null>(null);
-  const [isMember, setIsMember] = useState(false);
-
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [requests, setRequests] = useState<HubRequest[]>([]);
+  const { user, loading: authLoading } = useAuth();
+  const {
+    loading, hub, isMember, messages, members, requests, sending,
+    sendMessage, acceptRequest, rejectRequest, kickMember, leaveHub, promoteToOwner,
+  } = useHub(hubId, user?.userId ?? '');
 
   const [newMessage, setNewMessage] = useState('');
-  const [sending, setSending] = useState(false);
   const [confirmPromote, setConfirmPromote] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const profileCacheRef = useRef<Record<string, string>>({});
-
-  const resolveTag = async (uid: string): Promise<string> => {
-    if (profileCacheRef.current[uid]) return profileCacheRef.current[uid];
-    const { data } = await supabase.from('profiles').select('username, discord_tag').eq('id', uid).single();
-    const tag = data?.username || data?.discord_tag || uid.slice(0, 8);
-    profileCacheRef.current[uid] = tag;
-    return tag;
-  };
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/'); return; }
-      const uid = session.user.id;
-      setUserId(uid);
-
-      const { data: hubData } = await supabase.from('hubs').select('*').eq('id', hubId).single();
-      if (!hubData) { router.push('/dashboard'); return; }
-      setHub(hubData);
-
-      const { data: membership } = await supabase
-        .from('hub_members').select('user_id').eq('hub_id', hubId).eq('user_id', uid).single();
-
-      const isCreator = uid === hubData.creator_id;
-
-      // Auto-add creator to hub_members if missing (e.g. hub created before this table existed)
-      if (isCreator && !membership) {
-        await supabase.from('hub_members').insert({ hub_id: hubId, user_id: uid });
-      }
-
-      const member = !!membership || isCreator;
-      setIsMember(member);
-
-      if (!member) { setLoading(false); return; }
-
-      // Fetch members, messages in parallel
-      const [{ data: membersData }, { data: messagesData }] = await Promise.all([
-        supabase.from('hub_members').select('user_id, joined_at').eq('hub_id', hubId),
-        supabase.from('hub_messages').select('*').eq('hub_id', hubId).order('created_at', { ascending: true }),
-      ]);
-
-      // Resolve all profiles at once
-      const allUids = [...new Set([
-        ...(membersData?.map(m => m.user_id) ?? []),
-        ...(messagesData?.map(m => m.user_id) ?? []),
-      ])];
-
-      if (allUids.length > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('id, username, discord_tag').in('id', allUids);
-        profiles?.forEach(p => { profileCacheRef.current[p.id] = p.username || p.discord_tag || p.id.slice(0, 8); });
-      }
-
-      setMembers(membersData?.map(m => ({ ...m, discord_tag: profileCacheRef.current[m.user_id] })) ?? []);
-      setMessages(messagesData?.map(m => ({ ...m, discord_tag: profileCacheRef.current[m.user_id] })) ?? []);
-
-      // Fetch pending requests for creator
-      if (uid === hubData.creator_id) {
-        const { data: reqData } = await supabase
-          .from('hub_requests').select('*').eq('hub_id', hubId).eq('status', 'pending');
-
-        const reqUids = reqData?.map(r => r.user_id) ?? [];
-        if (reqUids.length > 0) {
-          const { data: reqProfiles } = await supabase.from('profiles').select('id, username, discord_tag').in('id', reqUids);
-          reqProfiles?.forEach(p => { profileCacheRef.current[p.id] = p.username || p.discord_tag || p.id.slice(0, 8); });
-        }
-        setRequests(reqData?.map(r => ({ ...r, discord_tag: profileCacheRef.current[r.user_id] })) ?? []);
-      }
-
-      setLoading(false);
-
-      // Real-time subscription
-      channelRef.current = supabase
-        .channel(`hub-${hubId}`)
-        .on('postgres_changes', {
-          event: 'INSERT', schema: 'public', table: 'hub_messages',
-          filter: `hub_id=eq.${hubId}`,
-        }, async (payload) => {
-          const msg = payload.new as Message;
-          const tag = await resolveTag(msg.user_id);
-          setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, { ...msg, discord_tag: tag }]);
-        })
-        .subscribe();
-    };
-
-    init();
-    return () => { channelRef.current?.unsubscribe(); };
-  }, [hubId, router]);
+    if (!authLoading && !user) router.push('/');
+  }, [authLoading, user, router]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -152,48 +29,16 @@ export default function HubPage() {
 
   const handleSend = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!newMessage.trim() || sending) return;
-    setSending(true);
-    await supabase.from('hub_messages').insert({ hub_id: hubId, user_id: userId, content: newMessage.trim() });
+    await sendMessage(newMessage);
     setNewMessage('');
-    setSending(false);
   };
 
-  const handleAccept = async (req: HubRequest) => {
-    await supabase.from('hub_requests').update({ status: 'accepted' }).eq('id', req.id);
-    await supabase.from('hub_members').insert({ hub_id: hubId, user_id: req.user_id });
-    setRequests(prev => prev.filter(r => r.id !== req.id));
-    setMembers(prev => [...prev, { user_id: req.user_id, joined_at: new Date().toISOString(), discord_tag: req.discord_tag }]);
-  };
-
-  const handleReject = async (reqId: string) => {
-    await supabase.from('hub_requests').update({ status: 'rejected' }).eq('id', reqId);
-    setRequests(prev => prev.filter(r => r.id !== reqId));
-  };
-
-  const handleKick = async (memberId: string) => {
-    await supabase.from('hub_members').delete().eq('hub_id', hubId).eq('user_id', memberId);
-    setMembers(prev => prev.filter(m => m.user_id !== memberId));
-  };
-
-  const handleLeave = async () => {
-    await supabase.from('hub_members').delete().eq('hub_id', hubId).eq('user_id', userId);
-    router.push('/dashboard');
-  };
-
-  const handlePromote = async (member: Member) => {
-    const newOwnerTag = member.discord_tag ?? member.user_id.slice(0, 8);
-    await supabase.from('hubs').update({ creator_id: member.user_id }).eq('id', hubId);
-    await supabase.from('hub_messages').insert({
-      hub_id: hubId,
-      user_id: userId,
-      content: `⚙️ ${newOwnerTag} a fost promovat la Hub Owner!`,
-    });
-    setHub(prev => prev ? { ...prev, creator_id: member.user_id } : prev);
+  const handlePromote = async (member: { user_id: string; joined_at: string; discord_tag?: string }) => {
+    await promoteToOwner(member);
     setConfirmPromote(null);
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return <div className="h-screen bg-slate-950 flex items-center justify-center text-white">Se încarcă hub-ul...</div>;
   }
 
@@ -212,7 +57,7 @@ export default function HubPage() {
     );
   }
 
-  const isCreator = hub.creator_id === userId;
+  const isCreator = hub.creator_id === user?.userId;
 
   return (
     <div className="h-screen bg-slate-950 text-white flex flex-col overflow-hidden">
@@ -234,7 +79,7 @@ export default function HubPage() {
         </div>
 
         {!isCreator && (
-          <button onClick={handleLeave} className="shrink-0 text-xs text-red-400 hover:text-white hover:bg-red-600 px-3 py-1.5 rounded-lg border border-red-600/40 transition-all">
+          <button onClick={leaveHub} className="shrink-0 text-xs text-red-400 hover:text-white hover:bg-red-600 px-3 py-1.5 rounded-lg border border-red-600/40 transition-all">
             Părăsește
           </button>
         )}
@@ -257,11 +102,11 @@ export default function HubPage() {
                   <li key={req.id} className="bg-slate-800 rounded-xl p-2.5 space-y-2">
                     <p className="text-sm text-slate-200 truncate font-medium">{req.discord_tag ?? req.user_id.slice(0, 8)}</p>
                     <div className="flex gap-1.5">
-                      <button onClick={() => handleAccept(req)}
+                      <button onClick={() => acceptRequest(req)}
                         className="flex-1 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-all">
                         ✓ Accept
                       </button>
-                      <button onClick={() => handleReject(req.id)}
+                      <button onClick={() => rejectRequest(req.id)}
                         className="px-2 py-1 text-xs bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded-lg border border-red-600/30 transition-all">
                         ✗
                       </button>
@@ -294,7 +139,7 @@ export default function HubPage() {
                       {m.user_id === hub.creator_id && <span className="text-yellow-500 ml-1 text-xs">★</span>}
                     </span>
                   </div>
-                  {isCreator && m.user_id !== userId && (
+                  {isCreator && m.user_id !== user?.userId && (
                     confirmPromote === m.user_id ? (
                       <div className="flex items-center gap-1 shrink-0">
                         <button
@@ -320,7 +165,7 @@ export default function HubPage() {
                           ★
                         </button>
                         <button
-                          onClick={() => handleKick(m.user_id)}
+                          onClick={() => kickMember(m.user_id)}
                           title="Scoate din hub"
                           className="text-slate-600 hover:text-red-400 transition-colors text-base leading-none"
                         >
@@ -351,7 +196,7 @@ export default function HubPage() {
                   </div>
                 );
               }
-              const isOwn = msg.user_id === userId;
+              const isOwn = msg.user_id === user?.userId;
               const showHeader = i === 0 || messages[i - 1].user_id !== msg.user_id;
               return (
                 <div key={msg.id} className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} ${showHeader && i > 0 ? 'mt-3' : ''}`}>

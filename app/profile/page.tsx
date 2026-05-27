@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 const POPULAR_GAMES = [
   "League of Legends","Valorant","CS2","Dota 2","Fortnite",
@@ -17,6 +18,7 @@ interface SavedProfile { username: string; discordTag: string; games: GameEntry[
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { user, loading: authLoading, refresh } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [email, setEmail] = useState('');
@@ -45,34 +47,22 @@ export default function ProfilePage() {
     JSON.stringify(games) !== JSON.stringify(savedProfile.games);
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/'); return; }
-
-      setEmail(session.user.email ?? '');
-      setUserId(session.user.id);
-
-      const { data } = await supabase
-        .from('profiles')
-        .select('username, discord_tag, games')
-        .eq('id', session.user.id)
-        .single();
-
-      if (data) {
-        const snap: SavedProfile = {
-          username: data.username ?? '',
-          discordTag: data.discord_tag ?? '',
-          games: data.games ?? [],
-        };
-        setUsername(snap.username);
-        setDiscordTag(snap.discordTag);
-        setGames(snap.games);
-        setSavedProfile(snap);
-      }
+    if (!authLoading && !user) { router.push('/'); return; }
+    if (user) {
+      setEmail(user.email);
+      setUserId(user.userId);
+      const snap: SavedProfile = {
+        username: user.username,
+        discordTag: user.discordTag,
+        games: user.games,
+      };
+      setUsername(snap.username);
+      setDiscordTag(snap.discordTag);
+      setGames(snap.games);
+      setSavedProfile(snap);
       setLoading(false);
-    };
-    init();
-  }, [router]);
+    }
+  }, [authLoading, user, router]);
 
   const checkUsername = useCallback(async (value: string) => {
     const trimmed = value.trim();
@@ -120,6 +110,7 @@ export default function ProfilePage() {
     if (!error) {
       const snap: SavedProfile = { username: trimmedUsername, discordTag: discordTag.trim(), games };
       setSavedProfile(snap);
+      await refresh();
     }
   };
 

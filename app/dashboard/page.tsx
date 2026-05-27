@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
+import { useHubs } from '../../hooks/useHubs';
 
 const POPULAR_GAMES = [
   "League of Legends","Valorant","CS2","Dota 2","Fortnite",
@@ -11,37 +13,14 @@ const POPULAR_GAMES = [
   "Hearthstone","Escape from Tarkov",
 ];
 
-interface GameEntry { name: string; mode: '4fun' | 'ranked'; }
-
-interface Hub {
-  id: string;
-  name: string;
-  game: string;
-  mode: '4fun' | 'ranked';
-  description: string | null;
-  creator_id: string;
-  created_at: string;
-  join_type: 'free' | 'request';
-  max_members: number;
-}
-
 export default function Dashboard() {
   const router = useRouter();
   const profileRef = useRef<HTMLDivElement>(null);
+  const { user, loading: authLoading } = useAuth();
+  const { hubs, memberCounts, memberships, pendingRequests, loading: hubsLoading, joining, fetchAll, createHub, joinHub, deleteHub } = useHubs(user?.userId ?? '');
 
-  const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState('');
-  const [username, setUsername] = useState('');
-  const [discordTag, setDiscordTag] = useState('');
-  const [games, setGames] = useState<GameEntry[]>([]);
+  // UI state
   const [profileOpen, setProfileOpen] = useState(false);
-
-  const [hubs, setHubs] = useState<Hub[]>([]);
-  const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
-  const [memberships, setMemberships] = useState<Set<string>>(new Set());
-  const [pendingRequests, setPendingRequests] = useState<Set<string>>(new Set());
-  const [hubsLoading, setHubsLoading] = useState(true);
-  const [joining, setJoining] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // Filters
@@ -63,50 +42,12 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/'); return; }
-      setUserId(session.user.id);
+    if (!authLoading && !user) router.push('/');
+  }, [authLoading, user, router]);
 
-      const { data: profile } = await supabase
-        .from('profiles').select('username, discord_tag, games').eq('id', session.user.id).single();
-      if (profile) {
-        setUsername(profile.username ?? '');
-        setDiscordTag(profile.discord_tag ?? '');
-        setGames(profile.games ?? []);
-      }
-
-      setLoading(false);
-      await fetchAll(session.user.id);
-    };
-    init();
-  }, [router]);
-
-  const fetchAll = async (uid: string) => {
-    setHubsLoading(true);
-
-    // Sterge hub-urile goale de mai mult de 1 ora
-    await supabase.from('hubs').delete()
-      .not('empty_since', 'is', null)
-      .lt('empty_since', new Date(Date.now() - 3600_000).toISOString());
-
-    const [{ data: hubsData }, { data: allMembers }, { data: userMemberships }, { data: userRequests }] =
-      await Promise.all([
-        supabase.from('hubs').select('*').order('created_at', { ascending: false }),
-        supabase.from('hub_members').select('hub_id'),
-        supabase.from('hub_members').select('hub_id').eq('user_id', uid),
-        supabase.from('hub_requests').select('hub_id').eq('user_id', uid).eq('status', 'pending'),
-      ]);
-
-    const counts: Record<string, number> = {};
-    allMembers?.forEach(m => { counts[m.hub_id] = (counts[m.hub_id] ?? 0) + 1; });
-
-    setHubs(hubsData ?? []);
-    setMemberCounts(counts);
-    setMemberships(new Set(userMemberships?.map(m => m.hub_id) ?? []));
-    setPendingRequests(new Set(userRequests?.map(r => r.hub_id) ?? []));
-    setHubsLoading(false);
-  };
+  useEffect(() => {
+    if (user?.userId) fetchAll();
+  }, [user?.userId, fetchAll]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -126,38 +67,18 @@ export default function Dashboard() {
     e.preventDefault();
     if (!hubName.trim() || !hubGame.trim()) return;
     setCreating(true);
-
-    const { data } = await supabase.from('hubs').insert({
-      name: hubName.trim(), game: hubGame.trim(), mode: hubMode,
-      description: hubDesc.trim() || null, creator_id: userId,
-      join_type: hubJoinType, max_members: hubMaxMembers,
-    }).select().single();
-
-    if (data) {
-      await supabase.from('hub_members').insert({ hub_id: data.id, user_id: userId });
-    }
-
+    await createHub({
+      name: hubName.trim(),
+      game: hubGame.trim(),
+      mode: hubMode,
+      description: hubDesc.trim(),
+      joinType: hubJoinType,
+      maxMembers: hubMaxMembers,
+    });
     setHubName(''); setHubGame(''); setHubMode('ranked');
     setHubDesc(''); setHubJoinType('free'); setHubMaxMembers(10);
     setShowCreate(false);
     setCreating(false);
-    fetchAll(userId);
-  };
-
-  const handleJoin = async (hub: Hub) => {
-    setJoining(hub.id);
-    if (hub.join_type === 'free') {
-      await supabase.from('hub_members').insert({ hub_id: hub.id, user_id: userId });
-    } else {
-      await supabase.from('hub_requests').insert({ hub_id: hub.id, user_id: userId });
-    }
-    await fetchAll(userId);
-    setJoining(null);
-  };
-
-  const handleDeleteHub = async (hubId: string) => {
-    await supabase.from('hubs').delete().eq('id', hubId);
-    fetchAll(userId);
   };
 
   const availableGames = [...new Set(hubs.map(h => h.game))].sort();
@@ -176,9 +97,11 @@ export default function Dashboard() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
-  if (loading) {
+  if (authLoading) {
     return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Se încarcă...</div>;
   }
+
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col">
@@ -194,26 +117,26 @@ export default function Dashboard() {
                 onClick={() => setProfileOpen(o => !o)}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition-all text-sm font-medium"
               >
-                <span className="text-slate-300 font-semibold">{username ? `@${username}` : 'My Profile'}</span>
-                {discordTag && <span className="text-[#5865F2] text-xs hidden sm:inline">{discordTag}</span>}
+                <span className="text-slate-300 font-semibold">{user.username ? `@${user.username}` : 'My Profile'}</span>
+                {user.discordTag && <span className="text-[#5865F2] text-xs hidden sm:inline">{user.discordTag}</span>}
                 <span className={`text-slate-500 text-xs transition-transform duration-200 ${profileOpen ? 'rotate-180' : ''}`}>▼</span>
               </button>
 
               {profileOpen && (
                 <div className="absolute right-0 top-full mt-2 w-72 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-4 space-y-3">
-                  {username && (
+                  {user.username && (
                     <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                      <span className="text-slate-500">@</span><span>{username}</span>
+                      <span className="text-slate-500">@</span><span>{user.username}</span>
                     </div>
                   )}
-                  {discordTag && (
+                  {user.discordTag && (
                     <div className="flex items-center gap-2 text-sm text-slate-400">
-                      <span className="text-[#5865F2]">●</span><span>{discordTag}</span>
+                      <span className="text-[#5865F2]">●</span><span>{user.discordTag}</span>
                     </div>
                   )}
-                  {games.length > 0 ? (
+                  {user.games.length > 0 ? (
                     <ul className="space-y-1.5">
-                      {games.map((g, i) => (
+                      {user.games.map((g, i) => (
                         <li key={i} className="flex items-center justify-between bg-slate-950 rounded-lg px-3 py-1.5 text-sm">
                           <span className="text-slate-200">{g.name}</span>
                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${g.mode === 'ranked' ? 'bg-blue-600/20 text-blue-400' : 'bg-green-600/20 text-green-400'}`}>
@@ -322,7 +245,7 @@ export default function Dashboard() {
             {filteredHubs.map(hub => {
               const count = memberCounts[hub.id] ?? 0;
               const isMember = memberships.has(hub.id);
-              const isCreator = hub.creator_id === userId;
+              const isCreator = hub.creator_id === user.userId;
               const isPending = pendingRequests.has(hub.id);
               const isFull = count >= hub.max_members;
 
@@ -369,7 +292,7 @@ export default function Dashboard() {
                       </button>
                     ) : (
                       <button
-                        onClick={() => handleJoin(hub)}
+                        onClick={() => joinHub(hub)}
                         disabled={joining === hub.id}
                         className="flex-1 py-2 text-sm font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all disabled:opacity-60"
                       >
@@ -381,7 +304,7 @@ export default function Dashboard() {
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs text-slate-400">Sigur?</span>
                           <button
-                            onClick={() => { handleDeleteHub(hub.id); setConfirmDelete(null); }}
+                            onClick={() => { deleteHub(hub.id); setConfirmDelete(null); }}
                             className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-all"
                           >
                             Da
