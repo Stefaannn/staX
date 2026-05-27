@@ -169,7 +169,13 @@ export default function Dashboard() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-bold">Hub-uri Active</h2>
-            <p className="text-slate-500 text-sm mt-0.5">Găsește sau creează un grup de jucători</p>
+            <div className="flex items-center gap-3 mt-1">
+              <span className="text-slate-500 text-sm">Total: <span className="text-slate-300 font-medium">{hubs.length}</span></span>
+              <span className="text-slate-700">·</span>
+              <span className="text-slate-500 text-sm">Create de mine: <span className="text-blue-400 font-medium">{hubs.filter(h => h.creator_id === user.userId).length}</span></span>
+              <span className="text-slate-700">·</span>
+              <span className="text-slate-500 text-sm">Membru în: <span className="text-purple-400 font-medium">{memberships.size}</span></span>
+            </div>
           </div>
           <button
             onClick={() => setShowCreate(true)}
