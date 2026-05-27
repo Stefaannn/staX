@@ -151,6 +151,12 @@ export function useHub(hubId: string, userId: string) {
   };
 
   const leaveHub = async () => {
+    const tag = await resolveTag(userId);
+    await supabase.from('hub_messages').insert({
+      hub_id: hubId,
+      user_id: userId,
+      content: `⚙️ ${tag} a părăsit hub-ul.`,
+    });
     await supabase.from('hub_members').delete().eq('hub_id', hubId).eq('user_id', userId);
     router.push('/dashboard');
   };
