@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useHubs } from '../../hooks/useHubs';
+import { applyHubFilters } from '../../lib/filterHubs';
 
 const POPULAR_GAMES = [
   "League of Legends","Valorant","CS2","Dota 2","Fortnite",
@@ -85,19 +86,10 @@ export default function Dashboard() {
   const availableGames = [...new Set(hubs.map(h => h.game))].sort();
   const filteredSuggestions = POPULAR_GAMES.filter(g => g.toLowerCase().includes(hubGame.toLowerCase()));
 
-  const filteredHubs = hubs
-    .filter(hub => {
-      if (searchName && !hub.name.toLowerCase().includes(searchName.toLowerCase())) return false;
-      if (filterGame && hub.game !== filterGame) return false;
-      if (filterMode !== 'all' && hub.mode !== filterMode) return false;
-      if (hideFull && (memberCounts[hub.id] ?? 0) >= hub.max_members) return false;
-      if (showOnlyMine && !memberships.has(hub.id) && hub.creator_id !== user?.userId) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      if (sortBy === 'popular') return (memberCounts[b.id] ?? 0) - (memberCounts[a.id] ?? 0);
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
+  const filteredHubs = applyHubFilters(hubs, {
+    searchName, filterGame, filterMode, hideFull, showOnlyMine, sortBy,
+    memberCounts, memberships, userId: user?.userId ?? '',
+  });
 
   if (authLoading) {
     return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Se încarcă...</div>;
