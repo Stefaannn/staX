@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:load": "k6 run tests/load-test.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",
