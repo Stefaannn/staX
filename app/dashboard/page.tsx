@@ -279,6 +279,9 @@ export default function Dashboard() {
                     <span>👥 {count} / {hub.max_members} membri</span>
                     {isFull && <span className="text-red-400 font-medium">• Plin</span>}
                   </div>
+                  <div className="text-xs text-slate-600">
+                    Creat {new Date(hub.created_at).toLocaleDateString('ro-RO', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </div>
 
                   <div className="flex items-center gap-2 pt-2 mt-auto border-t border-slate-800">
                     {isMember || isCreator ? (
