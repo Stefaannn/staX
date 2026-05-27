@@ -10,7 +10,7 @@ export default function HubPage() {
   const { id: hubId } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
   const {
-    loading, hub, isMember, messages, members, requests, sending,
+    loading, hub, isMember, messages, members, requests, sending, onCooldown,
     sendMessage, acceptRequest, rejectRequest, kickMember, leaveHub, promoteToOwner,
   } = useHub(hubId, user?.userId ?? '');
 
@@ -223,21 +223,29 @@ export default function HubPage() {
           </div>
 
           {/* Input */}
-          <form onSubmit={handleSend} className="border-t border-slate-800 px-4 py-3 flex gap-3 shrink-0 bg-slate-900/40">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={e => setNewMessage(e.target.value)}
-              placeholder="Scrie un mesaj..."
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm"
-            />
-            <button
-              type="submit"
-              disabled={!newMessage.trim() || sending}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all text-sm shrink-0"
-            >
-              Trimite
-            </button>
+          <form onSubmit={handleSend} className="border-t border-slate-800 px-4 py-3 flex flex-col gap-2 shrink-0 bg-slate-900/40">
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={e => setNewMessage(e.target.value)}
+                placeholder="Scrie un mesaj..."
+                maxLength={500}
+                className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm"
+              />
+              <button
+                type="submit"
+                disabled={!newMessage.trim() || sending || onCooldown}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all text-sm shrink-0"
+              >
+                {onCooldown ? '⏳ 3s' : 'Trimite'}
+              </button>
+            </div>
+            <div className="flex justify-end">
+              <span className={`text-xs ${newMessage.length > 450 ? 'text-red-400' : 'text-slate-600'}`}>
+                {newMessage.length}/500
+              </span>
+            </div>
           </form>
         </div>
       </div>
