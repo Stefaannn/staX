@@ -49,7 +49,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   };
 
-  useEffect(() => { fetchUser(); }, []);
+  useEffect(() => {
+    fetchUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      fetchUser();
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, loading, refresh: fetchUser }}>
